@@ -41,7 +41,7 @@ jobs:
       if: success()
       run: |
         mkdir -p output
-        mv usbarmory-${{ matrix.device }}-debian_bookworm-base_image-*.raw output/
+        mv usbarmory-mark-two-usd-debian_bookworm-base_image-*.raw.xz* output/
         tar -czvf output/${{ matrix.device }}-${{ matrix.arch }}-${{ matrix.mem }}-${{ matrix.boot }}.tar.gz -C output .
 
     - name: Upload Build Artifacts
