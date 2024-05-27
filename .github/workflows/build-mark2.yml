@@ -1,0 +1,87 @@
+name: Build-Mark2
+on:
+  workflow_dispatch:
+
+# This workflow builds the OS-Image for: USB Armory Mark2 (USB-Version with SD-Card and 512M RAM)
+
+jobs:
+  mark-two:
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [imx6ulz]
+        boot: [uSD]
+        mem: [512M]
+        device: [mark-two]
+
+    steps:
+    - uses: actions/checkout@v3.3.0
+    - uses: actions/setup-go@v3.5.0
+      with:
+        go-version: '1.22.1'
+
+    - name: Prerequisites
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          bc binfmt-support bzip2 fakeroot file gcc gcc-arm-linux-gnueabihf git \
+          gnupg make parted rsync qemu-user-static wget xz-utils zip debootstrap \
+          sudo dirmngr bison flex libssl-dev kmod
+
+    - name: Import Signing Keys
+      run: |  # public key servers time out on at least one test, therefore we fetch cached keys
+        wget https://usbarmory.github.io/keys/38DBBDC86092693E.asc && gpg --import 38DBBDC86092693E.asc
+        wget https://usbarmory.github.io/keys/147C39FF9634B72C.asc && gpg --import 147C39FF9634B72C.asc
+
+    - name: Build Image
+      run: make V=${{ matrix.device }} IMX=${{ matrix.arch }} MEM=${{ matrix.mem }} BOOT=${{ matrix.boot }}
+
+    - name: Archive Build Output
+      if: success()
+      run: |
+        mkdir -p output
+        mv usbarmory-${{ matrix.device }}-debian_bookworm-base_image-*.raw output/
+        tar -czvf output/${{ matrix.device }}-${{ matrix.arch }}-${{ matrix.mem }}-${{ matrix.boot }}.tar.gz -C output .
+
+    - name: Upload Build Artifacts
+      if: success()
+      uses: actions/upload-artifact@v3
+      with:
+        name: build-${{ matrix.device }}-${{ matrix.arch }}-${{ matrix.mem }}-${{ matrix.boot }}
+        path: output/*.tar.gz
+
+  release:
+    needs: mark-two
+    runs-on: ubuntu-22.04
+    if: github.ref == 'refs/heads/master'
+    steps:
+    - uses: actions/checkout@v3.3.0
+
+    - name: Download Build Artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: build-${{ matrix.device }}-${{ matrix.arch }}-${{ matrix.mem }}-${{ matrix.boot }}
+        path: ./output
+
+    - name: Create GitHub Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v1.0.${{ github.run_number }}
+        release_name: Release ${{ github.run_number }}
+        body: |
+          Release for ${{ matrix.device }} with arch ${{ matrix.arch }}, memory ${{ matrix.mem }}, and boot ${{ matrix.boot }}.
+        draft: false
+        prerelease: false
+
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./output/*.tar.gz
+        asset_name: ${{ matrix.device }}-${{ matrix.arch }}-${{ matrix.mem }}-${{ matrix.boot }}.tar.gz
+        asset_content_type: application/gzip
