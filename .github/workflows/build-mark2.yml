@@ -55,11 +55,13 @@ jobs:
     needs: mark-two
     runs-on: ubuntu-22.04
     strategy:
+      fail-fast: false
       matrix:
         arch: [imx6ulz]
         boot: [uSD]
         mem: [512M]
         device: [mark-two]
+
     if: github.ref == 'refs/heads/master'
     steps:
     - uses: actions/checkout@v3.3.0
