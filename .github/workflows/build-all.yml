@@ -1,5 +1,10 @@
+#name: Build-All
+#on: [push]
+
+# klausk: we want to start the workflow manually via Github-Gui
 name: Build-All
-on: [push]
+on:
+  workflow_dispatch:
 
 # TODO:
 # - Verify output binary
