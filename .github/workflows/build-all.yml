@@ -1,7 +1,4 @@
-#name: Build-All
-#on: [push]
-
-# klausk: we want to start the workflow manually via Github-Gui
+# We want to start the workflow manually.
 name: Build-All
 on:
   workflow_dispatch:
